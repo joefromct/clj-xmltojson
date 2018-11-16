@@ -1,0 +1,17 @@
+* xml-pivot-thingy
+
+Clojure Library to do (some of) what this python library does:
+
+https://github.com/martinblech/xmltodict
+
+(clj-xmltodict was a strange name because we have maps rather than dicts.)
+
+I'm using this mostly with (many) xml files that are <= 5mb.
+
+** TODO next 
+
+- [ ] lazy eval maybe.
+- [X] get force list to work
+- [ ] add /postprocessor/ functionality, like xmltodict 
+- [ ] remove Cheshire form dependencies (only required for testing)
+- [ ] refactor namespace to be more consistent

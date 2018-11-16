@@ -1,0 +1,47 @@
+{
+    "planes": {
+        "plane": [
+            {
+                "year": "1977",
+                "make": "Cessna",
+                "model": {
+                    "@color": "blue",
+                    "#text": "MoonDart"
+                },
+                "owner": [
+                    "mitch",
+                    "glen",
+                    "paulie"
+                ],
+                "action": [
+                    {
+                        "@type": "landing",
+                        "@weather": "windy",
+                        "#text": "sample text - landed the plane and it was windy."
+                    },
+                    {
+                        "@type": "landing",
+                        "@weather": "sunny",
+                        "#text": "sample text - landed the plane and it was sunny."
+                    }
+                ]
+            },
+            {
+                "make": "Cessna",
+                "year": "1933",
+                "owner": "jim",
+                "model": {
+                    "@color": "blue",
+                    "#text": "Skyhawk"
+                },
+                "action": [
+                    {
+                        "@type": "takeoff",
+                        "@weather": "windy",
+                        "#text": "text!"
+                    }
+                ]
+            }
+        ]
+    }
+}
