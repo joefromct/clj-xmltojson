@@ -85,8 +85,9 @@
   ([{:keys [tag] :as xml-map}
     opt-map]
    {:pre [(keyword? tag)]}
-   (let [^set force-list  (or (:force-list   opt-map) #{})
-         attrs-prefix     (or (:attrs-prefix opt-map) "@")
+   (let [^set force-list   (or (:force-list   opt-map) #{})
+         attrs-prefix      (or (:attrs-prefix opt-map) "@")
+         strip-whitespace? (or (:strip-whitespace? opt-map) false)
          fn-prefix        (partial prefix-keywords attrs-prefix)
          fn-walk-coll     #(xml->json % opt-map)
          fn-merge-xml     (partial xml-merge-parts fn-prefix fn-walk-coll force-list)
