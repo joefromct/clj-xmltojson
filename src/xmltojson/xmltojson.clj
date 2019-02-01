@@ -1,6 +1,7 @@
 (ns xmltojson.xmltojson
   (:require
-   [clojure.spec.alpha :as s]))
+   [clojure.spec.alpha :as s]
+   [clojure.string :as str]))
 
 (defn prefix-keywords
   "Prefixes keywords in a map, and returns same map with prefixed arguments.
@@ -42,12 +43,11 @@
 
   "
   [force-list m1 m2]
-  {:pre [(and (map? m1)
-              (map? m2)
+  {:pre [(and (every? map? [m1 m2])
               (set? force-list))]
    :post [(map? %)]}
-  (let [to-vector (fn[x](if (vector? x) x
-                           (vector x)))
+  (let [to-vector  #(if (vector? %) %
+                        (vector %))
         ;; find the forced-lists that are in our keys.
         fl's      (set (filter force-list (concat  (keys m1)
                                                    (keys m2))))
@@ -62,21 +62,29 @@
                     m1 m2)
         update-fl's)))
 
+(declare xml->json)
+
 (defn xml-merge-parts
   "Merges :attrs and :content to :tag of xml parsed through clojure.(data).xml."
-  [fn-prefix
-   fn-walk-coll
-   force-list
-   {:keys [attrs content tag]}]
-  (merge (fn-prefix attrs)
+  [{:keys [attrs content tag] :as xml-map}
+   {:keys [force-list attrs-prefix strip-whitespace?]
+    :or   {force-list #{}
+           attrs-prefix "@"
+           strip-whitespace? false}
+    :as opt-map}]
+  (merge (prefix-keywords attrs-prefix attrs)
          (cond
            ;; nothing here.
            (nil? content) nil
            ;; TODO what if we have a some maps but not all?
            (map? (first content)) (reduce (partial merge-to-vector force-list )
-                                          (map fn-walk-coll content))
+                                          (map #(xml->json % opt-map) content))
            ;; something here, but not a seq
-           :else (hash-map  :#text (first content)))))
+           :else (hash-map  :#text
+                            (if strip-whitespace? (str/trimr (first content))
+                                (first content))
+                            ))))
+
 
 (defn xml->json
   "Receives xml map (as provided by clojure.xml) and returns json-like hash map.
@@ -86,17 +94,19 @@
   TODO more docs.
   "
   ([{:keys [tag] :as xml-map}
-    opt-map]
-   {:pre [(keyword? tag)]}
-   (let [^set force-list   (or (:force-list   opt-map) #{})
-         attrs-prefix      (or (:attrs-prefix opt-map) "@")
-         strip-whitespace? (or (:strip-whitespace? opt-map) false)
-         fn-prefix        (partial prefix-keywords attrs-prefix)
-         fn-walk-coll     #(xml->json % opt-map)
-         fn-merge-xml     (partial xml-merge-parts fn-prefix fn-walk-coll force-list)
-         ]
-     (hash-map tag (-> xml-map
-                       fn-merge-xml
-                       nil-if-empty
-                       xml-only-text))))
+    {:keys [force-list attrs-prefix strip-whitespace?]
+     :or   {force-list #{}
+            attrs-prefix "@"
+            strip-whitespace? false}
+     :as opt-map}]
+   {:pre [(and (keyword? tag)
+               (map? xml-map)
+               (set? force-list)
+               (string? attrs-prefix)
+               (boolean? strip-whitespace?))]
+    :post [(map? %)]}
+   (hash-map tag (-> xml-map
+                      (xml-merge-parts opt-map)
+                      nil-if-empty
+                      xml-only-text)))
   ([xml-map] (xml->json  xml-map {} )))
