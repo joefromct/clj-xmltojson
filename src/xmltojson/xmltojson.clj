@@ -44,7 +44,8 @@
   [force-list m1 m2]
   {:pre [(and (map? m1)
               (map? m2)
-              (set? force-list))]}
+              (set? force-list))]
+   :post [(map? %)]}
   (let [to-vector (fn[x](if (vector? x) x
                            (vector x)))
         ;; find the forced-lists that are in our keys.
@@ -63,16 +64,18 @@
 
 (defn xml-merge-parts
   "Merges :attrs and :content to :tag of xml parsed through clojure.(data).xml."
-  [prefix-fn
-   walk-coll-fn
+  [fn-prefix
+   fn-walk-coll
    force-list
    {:keys [attrs content tag]}]
-  (merge (prefix-fn attrs)
+  (merge (fn-prefix attrs)
          (cond
+           ;; nothing here.
+           (nil? content) nil
            ;; TODO what if we have a some maps but not all?
            (map? (first content)) (reduce (partial merge-to-vector force-list )
-                                          (map walk-coll-fn content))
-           (nil? content) nil
+                                          (map fn-walk-coll content))
+           ;; something here, but not a seq
            :else (hash-map  :#text (first content)))))
 
 (defn xml->json
