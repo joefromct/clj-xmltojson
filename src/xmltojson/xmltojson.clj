@@ -10,11 +10,13 @@
     => {:new_a 1} "
   [attrs-prefix hash-map ]
   { :pre [(and (or (map? hash-map)
-                   (nil? hash-map)))]}
+                   (nil? hash-map))
+               (string? attrs-prefix))]
+   :post [(map? %)]}
   (let [prefix-keyword (fn[kw]  (->> kw
-                                    name
-                                    (format "%s%s" attrs-prefix)
-                                    keyword))]
+                                     name
+                                     (format "%s%s" attrs-prefix)
+                                     keyword))]
     (zipmap (map #(prefix-keyword % ) (keys hash-map ))
             (vals hash-map))))
 
