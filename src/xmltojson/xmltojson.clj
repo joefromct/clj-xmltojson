@@ -68,9 +68,7 @@
   "Merges :attrs and :content to :tag of xml parsed through clojure.(data).xml."
   [{:keys [attrs content tag] :as xml-map}
    {:keys [force-list attrs-prefix strip-whitespace?]
-    :or   {force-list #{}
-           attrs-prefix "@"
-           strip-whitespace? false}
+    :or   {force-list #{} attrs-prefix "@" strip-whitespace? true}
     :as opt-map}]
   (merge (prefix-keywords attrs-prefix attrs)
          (cond
@@ -81,10 +79,9 @@
                                           (map #(xml->json % opt-map) content))
            ;; something here, but not a seq
            :else (hash-map  :#text
-                            (if strip-whitespace? (str/trimr (first content))
+                            (if strip-whitespace? (str/trim (first content))
                                 (first content))
                             ))))
-
 
 (defn xml->json
   "Receives xml map (as provided by clojure.xml) and returns json-like hash map.
@@ -95,9 +92,7 @@
   "
   ([{:keys [tag] :as xml-map}
     {:keys [force-list attrs-prefix strip-whitespace?]
-     :or   {force-list #{}
-            attrs-prefix "@"
-            strip-whitespace? false}
+     :or   {force-list #{} attrs-prefix "@" strip-whitespace? true}
      :as opt-map}]
    {:pre [(and (keyword? tag)
                (map? xml-map)

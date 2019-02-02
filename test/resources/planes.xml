@@ -9,8 +9,8 @@
     <owner>mitch</owner>
     <owner>glen</owner>
     <owner>paulie</owner>
-    <action type="landing" weather="windy">sample text - landed the plane and it was windy. </action>
-    <action type="landing" weather="sunny">sample text - landed the plane and it was sunny. </action>
+    <action whitespace_attribute="whitespace->  " type="landing" weather="windy">sample text - landed the plane and it was windy. </action>
+    <action type="landing" weather="sunny">sample text - landed the plane and it was sunny. 	</action>
   </plane>
   <plane>
     <year>1933</year>
@@ -18,5 +18,12 @@
     <model color="blue"> Skyhawk </model>
     <owner>jim</owner>
     <action type="takeoff" weather="windy">text!</action>
+  </plane>
+  <plane>
+    <year>1833</year>
+    <make> whitespace->>         </make>
+    <model color="blue"> puppy </model>
+    <owner>hal</owner>
+    <action type="takeoff" weather="blowy">more with whitespace->>    </action>
   </plane>
   </planes>
