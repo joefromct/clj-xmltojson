@@ -1,7 +1,9 @@
 (ns xmltojson.xmltojson
   (:require
    [clojure.spec.alpha :as s]
-   [clojure.string :as str]))
+   [clojure.string :as str]
+   [clojure.walk :refer [postwalk postwalk-demo]]
+   ))
 
 (defn prefix-keywords
   "Prefixes keywords in a map, and returns same map with prefixed arguments.
@@ -33,6 +35,18 @@
   [m]
   (if (empty? m) nil m))
 
+(defn maybe-vector[v]
+  (if (vector? v) v
+      (vector v)))
+
+(defn maybe-vector-if-fl [fl m]
+  {:pre [(set? fl)]}
+  (if (map? m)
+    (into m (for [[k v]
+                  (select-keys m fl)]
+              [k (maybe-vector v)]))
+    m))
+
 (defn merge-to-vector
   "With two input maps, associate common keys into vectors and return result map
   containing all input data.  Coerces common key values into vectors.
@@ -44,25 +58,15 @@
   {:a [1 2] :b [2  4] :c 3}
 
   "
-  [force-list m1 m2]
-  {:pre [(and (every? map? [m1 m2])
-              (set? force-list))]
-   :post [(map? %)]}
-  (let [to-vector  #(if (vector? %) %
-                        (vector %))
-        ;; find the forced-lists that are in our keys.
-        fl's      (set (filter force-list (concat  (keys m1)
-                                                   (keys m2))))
-        ;; This takes a force-list value and returns a function that updates a
-        ;; map and makes sure that forced-list is a vector.
-        update-fl (fn[fl] (fn[x](update-in x [fl] to-vector)))
-        ;; This composes a list of functions as created above, from fl values.
-        update-fl's (apply comp (map update-fl fl's))
-        ]
-    (-> (merge-with #(into (to-vector %1)
-                           (to-vector %2))
-                    m1 m2)
-        update-fl's)))
+  [m1 m2]
+  {:pre [(every? map? [m1 m2])]
+   ;; TODO
+   ;;:post [(map? %)]
+   }
+  (->> (merge-with #(into (maybe-vector %1)
+                          (maybe-vector %2))
+                   m1
+                   m2)))
 
 (declare xml->json)
 
@@ -72,18 +76,19 @@
    {:keys [force-list attrs-prefix strip-whitespace?]
     :or   {force-list #{} attrs-prefix "@" strip-whitespace? true}
     :as opt-map}]
-  (merge (prefix-keywords attrs-prefix attrs)
-         (cond
-           ;; nothing here.
-           (nil? content) nil
-           ;; TODO what if we have a some maps but not all?
-           (map? (first content)) (reduce (partial merge-to-vector force-list )
-                                          (map #(xml->json % opt-map) content))
-           ;; something here, but not a seq
-           :else (hash-map  :#text
-                            (if strip-whitespace? (str/trim (first content))
-                                (first content))
-                            ))))
+  (postwalk (partial maybe-vector-if-fl force-list)
+            (merge (prefix-keywords attrs-prefix attrs)
+                   (cond
+                     ;; nothing here.
+                     (nil? content) nil
+                     ;; TODO what if we have a some maps but not all?
+                     (map? (first content)) (reduce merge-to-vector
+                                                    (map #(xml->json % opt-map) content))
+                     ;; something here, but not a seq
+                     :else (hash-map  :#text
+                                      (if strip-whitespace? (str/trim (first content))
+                                          (first content))
+                                      )))))
 
 (defn xml->json
   "Receives xml map (as provided by clojure.xml) and returns json-like hash map.
