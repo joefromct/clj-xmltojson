@@ -2,7 +2,6 @@
   (:require [cheshire.core :as json]
             [clojure.string :as s]
             [clojure.test :refer [deftest is]]
-            [xmltojson.predicates :as p]
             [xmltojson.utils :as u]
             [xmltojson.xmltojson :as t]
             [clojure.xml :as xml]
@@ -10,7 +9,6 @@
             [clojure.data :refer [diff]]
             [clojure.java.io :as io]
             [clojure.java.jdbc :as j]
-            [xmltojson.test-utils :refer [file-bn file-ext]]
             [xmltojson.pg-types]
             [clojure.string :as str]
             [taoensso.timbre :as timbre
