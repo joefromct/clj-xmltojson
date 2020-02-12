@@ -1,8 +1,7 @@
 (ns xmltojson.xmltojson
   (:require
    [clojure.spec.alpha :as s]
-   [clojure.string :as str]
-   [clojure.walk :refer [postwalk postwalk-demo]]))
+   [clojure.string :as str :refer [trim]]))
 
 (defn prefix-keywords
   "Prefixes keywords in a map, and returns same map with prefixed arguments.
@@ -22,8 +21,7 @@
             (vals hash-map))))
 
 (defn xml-only-text
-  "If XML is only a text node return that.
-  TODO make the text key configurable?"
+  "If XML is only a text node return that, to be stuffed into the parent tag.."
   [m]
   (if (= (keys m) '(:#text))
     (val (first m))
@@ -51,76 +49,74 @@
   {:a [1 2] :b [2  4] :c 3}
   "
   [m1 m2]
-  {:pre [(every? map? [m1 m2])]
-   ;; TODO
-   ;;:post [(map? %)]
-   }
-  (->> (merge-with #(into (maybe-vector %1)
-                          (maybe-vector %2))
-                   m1
-                   m2)))
+  {:pre [(every? map? [m1 m2])]}
+  (let [merger (fn [m1 m2]
+                 (into (maybe-vector m1)
+                       (maybe-vector m2)))]
+    (merge-with merger m1 m2)))
 
-(defn maybe-vector-if-fl
-  "With a force-list set and a maybe-map coerce keys in force list into maybe-vectors."
-  [fl m]
-  {:pre [(set? fl)]}
-  (if (map? m)
-    (into m (for [[k v]
-                  (select-keys m fl)]
-              [k (maybe-vector v)]))
-    m))
-
-(defn my-postwalk[force-list m]
-  "If we have a force-list on walk it after the final map is constructed to
-  ensure we didn't miss any arrays/lists."
-  {:pre [(and (set? force-list)
-              (map? m))]}
-  (if (not-empty force-list)
-    (postwalk (partial maybe-vector-if-fl force-list) m)
-    m))
-
-(declare xml->json)
+(declare parse)
 
 (defn xml-merge-parts
   "Merges :attrs and :content to :tag of xml parsed through clojure.(data).xml.
   Applies post-processing via a postwalk.
     TODO other post-processing fn's?"
-  [{:keys [attrs content tag] :as xml-map}
-   {:keys [force-list attrs-prefix strip-whitespace?]
-    :or   {force-list #{} attrs-prefix "@" strip-whitespace? true}
+  [{:keys [attrs content]}
+   {:keys [attrs-prefix strip-whitespace?]
+    :or   {attrs-prefix "@" strip-whitespace? true}
     :as opt-map}]
-  (my-postwalk force-list
-            (merge (prefix-keywords attrs-prefix attrs)
-                   (cond
-                     ;; nothing here.
-                     (nil? content) nil
-                     ;; TODO what if we have a some maps but not all?
-                     (map? (first content)) (reduce merge-to-vector
-                                                    (map #(xml->json % opt-map) content))
-                     ;; something here, but not a seq
-                     :else (hash-map  :#text
-                                      (if strip-whitespace? (str/trim (first content))
-                                          (first content)))))))
+  (merge (prefix-keywords attrs-prefix attrs)
+         (cond
+           ;; nothing here, quick and easy
+           (nil? content) nil
+           (empty? content) content
+           (string? content) (hash-map :#text
+                                       (if strip-whitespace? (trim content) content))
+           ;; TODO do i need every here? It might be slow.
+           (every? map? content) (reduce merge-to-vector
+                                         (map #(parse % opt-map) content))
+           (every? string? content) (->>  (if strip-whitespace?
+                                            (map trim content)
+                                            content)
+                                          (str/join "\n")
+                                          (hash-map :#text))
+           ;; NOTE this is the nasty scenario where there is maps inside of the text,
+           ;; sort of like html... often with  with <br> or <p> tags embedded
+           ;; in form content.
+           ;;
+           ;; We take it in two parts; bundle all strings into #text, and then
+           ;; anything a map should be again walked with the main function.
+           :else (apply merge  {:#text
+                                (->>  (if-let [strs (filter string? content)]
+                                        (if strip-whitespace?
+                                          (map trim strs)
+                                          strs))
+                                      str/join)}
+                        (->> content
+                             (filter map?)
+                             (map #(parse % opt-map)))))))
 
-(defn xml->json
-  "Receives xml map (as provided by clojure.xml) and returns json-like hash map.
+(defn parse
+  "Receives clojure xml map (as provided by clojure(.data).xml) and returns 
+   json-like hash map.
 
   `opt-map` Optional second map with keys [force-list, attr-prefix,
   strip-whitespace?] specify lists to be forced into vectors,  what to prefix
-  xml attributes with, and to strip-whitespace .
-  "
+  xml attributes with, and to strip-whitespace."
   ([{:keys [tag] :as xml-map}
-    {:keys [force-list attrs-prefix strip-whitespace?]
-     :or   {force-list #{} attrs-prefix "@" strip-whitespace? true}
+    {:keys [force-list]
+     :or   {force-list #{}}
      :as opt-map}]
    {:pre [(and (keyword? tag)
                (map? xml-map)
-               (set? force-list)
-               (string? attrs-prefix)
-               (boolean? strip-whitespace?))]
+               (set? force-list))]
     :post [(map? %)]}
-   (hash-map tag (-> xml-map
-                      (xml-merge-parts opt-map)
-                      nil-if-empty
-                      xml-only-text)))
-  ([xml-map] (xml->json  xml-map {} )))
+   (let [v (-> xml-map
+               (xml-merge-parts opt-map)
+               nil-if-empty
+               xml-only-text)]
+     ;; if tag is in force list, maybe-vector the result of content.
+     (if (force-list tag)
+       (hash-map tag (maybe-vector v))
+       (hash-map tag v))))
+  ([xml-map] (parse  xml-map {})))

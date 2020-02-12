@@ -1,17 +1,126 @@
-* xml-pivot-thingy
+* clj-xmltojson
+** Summary
 
-Clojure Library to do (some of) what this python library does:
+Makes XML feel a bit more like json.
 
-https://github.com/martinblech/xmltodict
+Given a defined variable called =xml= with content such as this:
 
-(clj-xmltodict was a strange name because we have maps rather than dicts.)
+#+BEGIN_SRC xml
+<CATALOG>
+  <CD>
+    <TITLE>Empire Burlesque</TITLE>
+    <ARTIST>Bob Dylan</ARTIST>
+    <COUNTRY>USA</COUNTRY>
+    <COUNTRY>UK</COUNTRY>
+    <COMPANY>Columbia</COMPANY>
+    <PRICE>10.90</PRICE>
+    <YEAR>1985</YEAR>
+  </CD>
+  <CD>
+    <TITLE>Hide your heart</TITLE>
+    <ARTIST>Bonnie Tyler</ARTIST>
+    <COUNTRY>UK</COUNTRY>
+    <COMPANY>CBS Records</COMPANY>
+    <PRICE>9.90</PRICE>
+    <YEAR>1988</YEAR>
+  </CD>
+  <CD>
+    <TITLE>Greatest Hits</TITLE>
+    <ARTIST>Dolly Parton</ARTIST>
+    <COUNTRY>USA</COUNTRY>
+    <COMPANY>RCA</COMPANY>
+    <PRICE>9.90</PRICE>
+    <YEAR>1982</YEAR>
+  </CD>
+</CATALOG>
+#+END_SRC
 
-I'm using this mostly with (many) xml files that are <= 5mb.
+provides the =parse= function, enabling processing like this:
 
-** TODO next 
+#+BEGIN_SRC clojure
+
+(require '[xmltojson.xmltojson :refer [parse]])
+(parse (clojure.data.xml/parse-str xml) {:force-list #{:COUNTRY}})
+#+END_SRC
+
+yielding output such as this:
+
+#+BEGIN_SRC clojure
+{:CATALOG
+ {:CD
+  [{:COMPANY "Columbia",
+    :ARTIST "Bob Dylan",
+    :PRICE "10.90",
+    :YEAR "1985",
+    :TITLE "Empire Burlesque",
+    :COUNTRY ["USA" "UK"]}
+   {:COMPANY "CBS Records",
+    :ARTIST "Bonnie Tyler",
+    :PRICE "9.90",
+    :YEAR "1988",
+    :TITLE "Hide your heart",
+    :COUNTRY ["UK"]}
+   {:COMPANY "RCA",
+    :ARTIST "Dolly Parton",
+    :PRICE "9.90",
+    :YEAR "1982",
+    :TITLE "Greatest Hits",
+    :COUNTRY ["USA"]}]}}
+#+END_SRC
+
+Note, =clojure.data.xml=  needs to be added to your project deps, or you can use
+=clojure.xml= and coerce the xml string into an input stream:
+#+BEGIN_SRC clojure
+(parse (->  xml .getBytes java.io.ByteArrayInputStream. clojure.xml/parse)
+       {:force-list #{:COUNTRY}})
+#+END_SRC
+
+
+** Why
+
+In python systems I've made a lot of use of [[https://github.com/martinblech/xmltodict][xmltodict]] , specifically the =parse=
+function and arguments such as =force_list=.
+
+=xmltojson.xmltojson/parse= aims to do the same (similar?) activity with
+options =force-list=, and =strip-whitespace?=.
+
+** Testing
+  Maybe the interesting part of this is how I've tested the python module as
+  compared to the clojure code.
+
+
+In [[dev-resources]] I have =build-jython.sh= that pulls jython2.7 standalone,
+compiles =xmltodict.py=, and zips the newly created class back into the jython
+jar file.  You'll need jython installed and on your path as well.
+
+What this allows me to do is create a python context and run things directly in
+jython, from clojure.
+
+So, the interop story isn't great; I was trying to cast (specifically) clojure
+types via java into python objects for jython use... but eventually gave up on
+that and basically just did the interop through json file serialization.
+
+I'd also tinkered with =graalvm= but eventually decided this was too cumbersome
+at the moment, especially on getting the virtual environment and xmltodict
+installed from pypy (and accessible from clojure, with a correct python path.)
+
+I also thought about potentially running a socket repl in python with data 
+interchange via edn... not sure how feasible this would be. 
+
+I'm also not sure if any of these things would be performant. 
+
+Anyway, as a hack it appears to work with dumping json to a temp file...
+
+** TODO Performance
+
+clojure.data.xml should be able to feed a stream to the application, but I'm not
+exactly sure how performance does at this point and if everything is lazy.
+
+** TODO next
 
 - [ ] lazy eval maybe.
 - [X] get force list to work
-- [ ] add /postprocessor/ functionality, like xmltodict 
-- [ ] remove Cheshire form dependencies (only required for testing)
-- [ ] refactor namespace to be more consistent
+- [ ] add /postprocessor/ functionality, like xmltodict
+- [ ] =unparse= and round-tripping
+- [ ] reitit/muuntaja formatter example for http coercion. 
+
